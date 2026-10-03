@@ -5,10 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clef System 1 Pac-Man Benchmark</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="page-container">
+    <!-- Header / Brand -->
+    <header class="benchmark-header">
+      <div class="header-title-row">
+        <h1 class="header-title">Clef System 1 Pac-Man Benchmark</h1>
+        <span class="model-tag" id="model-tag">@cf/cloudflare/clef-flash</span>
+      </div>
+    </header>
+
     <!-- Main Benchmark Card -->
     <main class="benchmark-card">
       <!-- Left: 19x21 Pac-Man Arcade Grid -->
@@ -16,44 +26,89 @@
         <div id="pacman-grid" class="pacman-grid"></div>
       </div>
 
-      <!-- Right: Live System 1 JSON Inspector -->
+      <!-- Right: Live System 1 JSON Inspector & Telemetry -->
       <div class="inspector-panel">
-        <div class="move-counter" id="move-counter">Move 1 of 187</div>
+        <div class="inspector-top-bar">
+          <div class="move-counter" id="move-counter">Move 1 of 187</div>
+          <div class="score-display" id="score-display">Score: 10</div>
+          <div class="source-badge badge-clef" id="source-badge">⚡ Stage 1 Cache</div>
+        </div>
+
+        <!-- Dynamic Game Status Banner (Game Over / Victory) -->
+        <div class="game-banner hidden" id="game-banner">
+          <span class="banner-icon" id="banner-icon">🏆</span>
+          <span class="banner-text" id="banner-text">Victory! All pellets consumed.</span>
+        </div>
+
+        <!-- Live Syntax-Highlighted Clef Response -->
         <div class="json-container">
           <pre class="json-code" id="json-code"></pre>
+        </div>
+
+        <!-- Telemetry & Performance Row -->
+        <div class="telemetry-bar">
+          <div class="telemetry-item" title="Stage 1 Fast-Path Cache Hit Rate">
+            <span class="telemetry-label">Cache Hit Rate:</span>
+            <span class="telemetry-value" id="cache-hit-rate">0.0% (0/0)</span>
+          </div>
+          <div class="telemetry-item" title="Total neural latency avoided by Fast-Path Cache">
+            <span class="telemetry-label">Latency Saved:</span>
+            <span class="telemetry-value" id="cache-saved">0 ms</span>
+          </div>
         </div>
       </div>
     </main>
 
-    <!-- Benchmark Footnote / Caption matching screenshot -->
+    <!-- Benchmark Footnote & Controls Bar -->
     <footer class="benchmark-footer">
       <p class="caption-text" id="caption-text">
-        Clef-Flash running on Cloudflare Workers AI, replayed at real-time speed.
+        Clef-Flash running on Cloudflare Workers AI, replayed with Stage 1 Fast-Path Cache.
       </p>
 
       <!-- Minimalist Controls Bar -->
       <div class="controls-bar">
-        <button class="btn btn-primary" id="btn-step" title="Execute next decision step">
+        <button class="btn btn-primary" id="btn-step" title="Execute next decision step [S]">
           <span class="btn-icon">⚡</span> Step
         </button>
-        <button class="btn btn-secondary" id="btn-autoplay" title="Auto-play simulation">
+        <button class="btn btn-secondary" id="btn-autoplay" title="Toggle auto-play simulation [Space]">
           <span class="btn-icon">▶</span> Auto-Play
         </button>
-        <button class="btn btn-outline" id="btn-reset" title="Reset to start">
+        <button class="btn btn-outline" id="btn-reset" title="Reset Pac-Man back to start [R]">
           <span class="btn-icon">↺</span> Reset
         </button>
+        <button class="btn btn-outline" id="btn-clear-cache" title="Flush Fast-Path Cache [C]">
+          <span class="btn-icon">🗑️</span> Clear Cache
+        </button>
+
+        <div class="backend-select-wrapper">
+          <label for="backend-select">Backend:</label>
+          <select id="backend-select" class="backend-select" title="Switch decision backend">
+            <option value="cloudflare">Cloudflare Clef-Flash</option>
+            <option value="mock">Local Heuristic (Fast)</option>
+          </select>
+        </div>
+
         <div class="speed-control">
           <label for="speed-slider">Speed:</label>
-          <input type="range" id="speed-slider" min="200" max="1500" value="600" step="50">
+          <input type="range" id="speed-slider" min="100" max="1500" value="600" step="50">
           <span id="speed-label">0.6s</span>
         </div>
+
         <div class="pellet-counter">
           <span class="pellet-dot"></span>
           <span id="pellet-text">162 left</span>
         </div>
+
         <div class="latency-badge" id="latency-badge">
           -- ms
         </div>
+      </div>
+
+      <div class="keyboard-legend">
+        <span><kbd>Space</kbd> Auto-Play</span>
+        <span><kbd>S</kbd> Step</span>
+        <span><kbd>R</kbd> Reset</span>
+        <span><kbd>C</kbd> Clear Cache</span>
       </div>
     </footer>
   </div>

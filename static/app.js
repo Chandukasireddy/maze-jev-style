@@ -7,10 +7,19 @@ let autoPlayTimer = null;
 // DOM Elements
 const pacmanGridEl = document.getElementById("pacman-grid");
 const moveCounterEl = document.getElementById("move-counter");
+const scoreDisplayEl = document.getElementById("score-display");
+const sourceBadgeEl = document.getElementById("source-badge");
+const gameBannerEl = document.getElementById("game-banner");
+const bannerIconEl = document.getElementById("banner-icon");
+const bannerTextEl = document.getElementById("banner-text");
 const jsonCodeEl = document.getElementById("json-code");
+const cacheHitRateEl = document.getElementById("cache-hit-rate");
+const cacheSavedEl = document.getElementById("cache-saved");
 const btnStep = document.getElementById("btn-step");
 const btnAutoPlay = document.getElementById("btn-autoplay");
 const btnReset = document.getElementById("btn-reset");
+const btnClearCache = document.getElementById("btn-clear-cache");
+const backendSelect = document.getElementById("backend-select");
 const speedSlider = document.getElementById("speed-slider");
 const speedLabel = document.getElementById("speed-label");
 const pelletText = document.getElementById("pellet-text");
@@ -41,7 +50,12 @@ async function fetchState() {
   try {
     const res = await fetch("/api/state");
     gameState = await res.json();
-    gameState.pelletSet = new Set(gameState.pellets.map(([x, y]) => `${x},${y}`));
+    gameState.pelletSet = new Set((gameState.pellets || []).map(([x, y]) => `${x},${y}`));
+
+    if (backendSelect && gameState.active_backend) {
+      backendSelect.value = gameState.active_backend;
+    }
+
     renderGrid();
     updateInspector(gameState);
   } catch (err) {
@@ -56,8 +70,10 @@ function renderGrid() {
   pacmanGridEl.innerHTML = "";
 
   const ghostMap = {};
-  for (const [name, pos] of Object.entries(ghosts)) {
-    ghostMap[`${pos[0]},${pos[1]}`] = name;
+  if (ghosts) {
+    for (const [name, pos] of Object.entries(ghosts)) {
+      ghostMap[`${pos[0]},${pos[1]}`] = name;
+    }
   }
 
   for (let y = 0; y < height; y++) {
@@ -66,12 +82,14 @@ function renderGrid() {
       cell.classList.add("grid-cell");
 
       const char = grid[y][x];
-      const isPacman = (x === pacman_pos[0] && y === pacman_pos[1]);
+      const isPacman = pacman_pos && (x === pacman_pos[0] && y === pacman_pos[1]);
       const ghostName = ghostMap[`${x},${y}`];
-      const hasPellet = pelletSet.has(`${x},${y}`);
+      const hasPellet = pelletSet && pelletSet.has(`${x},${y}`);
 
       if (char === "#") {
         cell.classList.add("cell-wall");
+      } else if (char === " ") {
+        cell.classList.add("cell-void");
       } else {
         cell.classList.add("cell-floor");
 
@@ -121,7 +139,7 @@ function getGhostSVG(ghostName) {
 }
 
 async function performStep() {
-  if (gameState && (gameState.is_game_over || gameState.pellets_remaining === 0)) {
+  if (gameState && gameState.is_game_over) {
     stopAutoPlay();
     return;
   }
@@ -138,12 +156,18 @@ async function performStep() {
     gameState.move_num = data.move_num;
     gameState.max_moves = data.max_moves;
     gameState.pellets_remaining = data.pellets_remaining;
+    gameState.score = data.score;
     gameState.is_game_over = data.is_game_over;
+    gameState.is_win = data.is_win;
+    gameState.game_over_reason = data.game_over_reason;
     gameState.answers = data.answers;
+    gameState.source = data.source;
+    gameState.execution_time_ms = data.execution_time_ms;
+    gameState.cache_stats = data.cache_stats;
 
     // Remove eaten pellet
     const key = `${data.pacman_pos[0]},${data.pacman_pos[1]}`;
-    if (gameState.pelletSet.has(key)) {
+    if (gameState.pelletSet && gameState.pelletSet.has(key)) {
       gameState.pelletSet.delete(key);
     }
 
@@ -166,6 +190,57 @@ function updateInspector(data) {
     moveCounterEl.innerText = `Move ${data.move_num} of ${data.max_moves || 187}`;
   }
 
+  // Update Score
+  if (scoreDisplayEl && data.score !== undefined) {
+    scoreDisplayEl.innerText = `Score: ${data.score}`;
+  }
+
+  // Update Source Badge
+  if (sourceBadgeEl) {
+    sourceBadgeEl.className = "source-badge";
+    const src = data.source || "initial";
+    if (src === "cache") {
+      sourceBadgeEl.classList.add("badge-cache");
+      sourceBadgeEl.innerText = "⚡ Stage 1 Cache";
+    } else if (src === "cloudflare_clef") {
+      sourceBadgeEl.classList.add("badge-clef");
+      sourceBadgeEl.innerText = "☁️ Clef-Flash";
+    } else if (src === "mock_engine") {
+      sourceBadgeEl.classList.add("badge-mock");
+      sourceBadgeEl.innerText = "🤖 Heuristic";
+    } else if (src === "mock_engine_fallback") {
+      sourceBadgeEl.classList.add("badge-fallback");
+      sourceBadgeEl.innerText = "⚠️ Fallback Heuristic";
+    } else {
+      sourceBadgeEl.classList.add("badge-clef");
+      sourceBadgeEl.innerText = "⚡ System 1 Ready";
+    }
+  }
+
+  // Status Banner (Victory / Defeat)
+  if (gameBannerEl) {
+    if (data.is_game_over) {
+      gameBannerEl.classList.remove("hidden");
+      if (data.is_win) {
+        gameBannerEl.className = "game-banner banner-victory";
+        if (bannerIconEl) bannerIconEl.innerText = "🏆";
+        if (bannerTextEl) bannerTextEl.innerText = `Victory! All pellets consumed in ${data.move_num} moves!`;
+      } else if (data.game_over_reason && data.game_over_reason.startsWith("caught_by")) {
+        const gName = data.game_over_reason.replace("caught_by_", "");
+        const capName = gName.charAt(0).toUpperCase() + gName.slice(1);
+        gameBannerEl.className = "game-banner banner-defeat";
+        if (bannerIconEl) bannerIconEl.innerText = "💀";
+        if (bannerTextEl) bannerTextEl.innerText = `Game Over! Caught by ${capName} at move ${data.move_num}.`;
+      } else if (data.game_over_reason === "moves_exhausted") {
+        gameBannerEl.className = "game-banner banner-defeat";
+        if (bannerIconEl) bannerIconEl.innerText = "⏳";
+        if (bannerTextEl) bannerTextEl.innerText = `Game Over! Maximum moves (${data.max_moves}) exhausted.`;
+      }
+    } else {
+      gameBannerEl.classList.add("hidden");
+    }
+  }
+
   // Syntax highlight JSON output
   if (jsonCodeEl && data.answers) {
     const highlightedHTML = highlightJSON({ answers: data.answers });
@@ -173,16 +248,28 @@ function updateInspector(data) {
   }
 
   // Latency
-  if (latencyBadge && data.execution_time_ms) {
-    latencyBadge.innerText = `${Math.round(data.execution_time_ms)} ms`;
+  if (latencyBadge && data.execution_time_ms !== undefined) {
+    const ms = data.execution_time_ms;
+    latencyBadge.innerText = ms < 1 ? "< 1 ms" : `${Math.round(ms)} ms`;
+  }
+
+  // Cache Telemetry
+  if (data.cache_stats) {
+    const stats = data.cache_stats;
+    if (cacheHitRateEl && stats.total_requests !== undefined) {
+      const pct = (stats.hit_rate * 100).toFixed(1);
+      cacheHitRateEl.innerText = `${pct}% (${stats.hits}/${stats.total_requests})`;
+    }
+    if (cacheSavedEl && stats.total_latency_saved_ms !== undefined) {
+      cacheSavedEl.innerText = `${Math.round(stats.total_latency_saved_ms)} ms`;
+    }
   }
 }
 
-// Pretty print and syntax highlight JSON matching exact screenshot style
+// Pretty print and syntax highlight JSON
 function highlightJSON(obj) {
   const jsonStr = JSON.stringify(obj, null, 2);
 
-  // Tokenize JSON for high-contrast matching
   return jsonStr
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -194,7 +281,6 @@ function highlightJSON(obj) {
         if (/^"/.test(match)) {
           if (/:$/.test(match)) {
             cls = "json-key";
-            // Strip colon for key span and re-append punctuation
             const keyContent = match.slice(0, -1);
             return `<span class="${cls}">${keyContent}</span><span class="json-punc">:</span>`;
           } else {
@@ -216,11 +302,37 @@ async function resetGame() {
   try {
     const res = await fetch("/api/reset", { method: "POST" });
     gameState = await res.json();
-    gameState.pelletSet = new Set(gameState.pellets.map(([x, y]) => `${x},${y}`));
+    gameState.pelletSet = new Set((gameState.pellets || []).map(([x, y]) => `${x},${y}`));
     renderGrid();
     updateInspector(gameState);
   } catch (err) {
     console.error("Reset failed:", err);
+  }
+}
+
+async function clearCache() {
+  try {
+    const res = await fetch("/api/cache/clear", { method: "POST" });
+    const data = await res.json();
+    if (data.cache_stats && gameState) {
+      gameState.cache_stats = data.cache_stats;
+      updateInspector(gameState);
+    }
+  } catch (err) {
+    console.error("Cache clear failed:", err);
+  }
+}
+
+async function handleBackendChange(e) {
+  const newBackend = e.target.value;
+  try {
+    await fetch("/api/backend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ backend: newBackend }),
+    });
+  } catch (err) {
+    console.error("Backend switch failed:", err);
   }
 }
 
@@ -233,7 +345,7 @@ function toggleAutoPlay() {
 }
 
 function startAutoPlay() {
-  if (gameState && (gameState.is_game_over || gameState.pellets_remaining === 0)) return;
+  if (gameState && gameState.is_game_over) return;
   isAutoPlaying = true;
   btnAutoPlay.innerHTML = '<span class="btn-icon">⏸</span> Pause';
   btnAutoPlay.classList.add("btn-primary");
@@ -256,6 +368,12 @@ function setupEventListeners() {
   btnStep.addEventListener("click", performStep);
   btnAutoPlay.addEventListener("click", toggleAutoPlay);
   btnReset.addEventListener("click", resetGame);
+  if (btnClearCache) {
+    btnClearCache.addEventListener("click", clearCache);
+  }
+  if (backendSelect) {
+    backendSelect.addEventListener("change", handleBackendChange);
+  }
 
   speedSlider.addEventListener("input", (e) => {
     const val = e.target.value;
@@ -266,11 +384,23 @@ function setupEventListeners() {
     }
   });
 
-  // Optional keyboard arrow controls
+  // Keyboard controls
   document.addEventListener("keydown", (e) => {
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+    // Avoid interfering if typing in an input
+    if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
+
+    if (e.code === "Space") {
+      e.preventDefault();
+      toggleAutoPlay();
+    } else if (e.key === "s" || e.key === "S") {
       e.preventDefault();
       performStep();
+    } else if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      resetGame();
+    } else if (e.key === "c" || e.key === "C") {
+      e.preventDefault();
+      clearCache();
     }
   });
 }
