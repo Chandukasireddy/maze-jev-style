@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clef System 1 Pac-Man Benchmark</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="page-container">
+    <!-- Main Benchmark Card -->
+    <main class="benchmark-card">
+      <!-- Left: 19x21 Pac-Man Arcade Grid -->
+      <div class="maze-panel">
+        <div id="pacman-grid" class="pacman-grid"></div>
+      </div>
+
+      <!-- Right: Live System 1 JSON Inspector -->
+      <div class="inspector-panel">
+        <div class="move-counter" id="move-counter">Move 1 of 187</div>
+        <div class="json-container">
+          <pre class="json-code" id="json-code"></pre>
+        </div>
+      </div>
+    </main>
+
+    <!-- Benchmark Footnote / Caption matching screenshot -->
+    <footer class="benchmark-footer">
+      <p class="caption-text" id="caption-text">
+        Clef-Flash running on Cloudflare Workers AI, replayed at real-time speed.
+      </p>
+
+      <!-- Minimalist Controls Bar -->
+      <div class="controls-bar">
+        <button class="btn btn-primary" id="btn-step" title="Execute next decision step">
+          <span class="btn-icon">⚡</span> Step
+        </button>
+        <button class="btn btn-secondary" id="btn-autoplay" title="Auto-play simulation">
+          <span class="btn-icon">▶</span> Auto-Play
+        </button>
+        <button class="btn btn-outline" id="btn-reset" title="Reset to start">
+          <span class="btn-icon">↺</span> Reset
+        </button>
+        <div class="speed-control">
+          <label for="speed-slider">Speed:</label>
+          <input type="range" id="speed-slider" min="200" max="1500" value="600" step="50">
+          <span id="speed-label">0.6s</span>
+        </div>
+        <div class="pellet-counter">
+          <span class="pellet-dot"></span>
+          <span id="pellet-text">162 left</span>
+        </div>
+        <div class="latency-badge" id="latency-badge">
+          -- ms
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
